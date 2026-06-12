@@ -1795,6 +1795,8 @@ Hooks.on("createItem", async (item, action, id) => {
 		return;
 	if (item.getFlag('item-piles', 'item'))
 		return;
+	if (item.getFlag('trans-char', 'syncUuid'))
+		return;
 	if (game.keyboard.isModifierActive("Control"))
 		return;
 	const actor = item.parent;
