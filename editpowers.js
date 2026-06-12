@@ -122,6 +122,7 @@ async function createMeleeAttack(power, attackName, uuidFlag, damage) {
 		}
 		attack = result[0];
 		await attack.setFlag(moduleId, 'baseDamage', damage);
+		await attack.setFlag(moduleId, 'parentUuid', power.uuid);
 		attackUuid = attack.uuid;
 		await power.setFlag(moduleId, uuidFlag, attackUuid);
 	}
@@ -1567,9 +1568,10 @@ async function addItem(item, flagUuid, uuid) {
 		const itemData = it.toObject();
 		delete itemData._id;
 		let items = await item.actor.createEmbeddedDocuments("Item", [itemData]);
-		if (items)
+		if (items) {
 			item.setFlag(moduleId, flagUuid, items[0].uuid);
-		else
+			items[0].setFlag(moduleId, 'parentUuid', item.uuid);
+		} else
 			ui.notifications.error(`Unable to add ${it.name} for ${item.name}.`);
 }
 
