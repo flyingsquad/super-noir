@@ -1,0 +1,173 @@
+{
+  "id": "super-noir",
+  "title": "Super-Noir",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "esmodules": [
+	"./customization.js",
+	"./custom-journal.js",
+	"./editpowers.js"
+  ],
+  "authors": [
+    {
+      "name": "Flying Squad",
+      "flags": {}
+    }
+  ],
+  "styles": [
+    "./styles/super-noir.css"
+  ], 
+  "flags": {
+    "canUpload": true
+  },
+  "packs": [
+    {
+      "name": "introduction",
+      "label": "Introduction",
+      "path": "packs/introduction",
+      "type": "JournalEntry",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "example-characters",
+      "label": "Example Characters",
+      "path": "packs/example-characters",
+      "type": "Actor",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "bestiary",
+      "label": "Bestiary",
+      "path": "packs/bestiary",
+      "type": "Actor",
+      "ownership": {
+        "PLAYER": "NONE",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "edges",
+      "label": "Super Edges",
+      "path": "packs/edges",
+      "type": "Item",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "hindrances",
+      "label": "Super Hindrances",
+      "path": "packs/hindrances",
+      "type": "Item",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "powers",
+      "label": "Super Powers",
+      "path": "packs/powers",
+      "type": "Item",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "items",
+      "label": "Gear",
+      "path": "packs/items",
+      "type": "Item",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "macros",
+      "label": "Macros",
+      "path": "packs/macros",
+      "type": "Macro",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "villain-items",
+      "label": "Villain Items",
+      "path": "packs/villain",
+      "type": "Item",
+      "ownership": {
+        "PLAYER": "NONE",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    },
+    {
+      "name": "help",
+      "label": "Help",
+      "path": "packs/help",
+      "type": "JournalEntry",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "swade",
+      "flags": {}
+    }
+  ],
+  "description": "",
+  "packFolders": [
+    {
+      "name": "Super-Noir",
+      "sorting": "m",
+      "color": "#991515",
+      "packs": [
+		"introduction",
+		"example-characters",
+		"edges",
+		"hindrances",
+		"powers",
+		"items",
+		"macros",
+		"villain",
+		"bestiary",
+		"help"
+      ],
+      "folders": []
+    }
+  ],
+  "url": "https://github.com/flyingsquad/super-noir",
+  "manifest": "https://raw.githubusercontent.com/flyingsquad/super-noir/main/module.json",
+  "version": "1.0.0",
+  "download": "https://github.com/flyingsquad/super-noir/archive/refs/tags/v1.0.0.zip"  
+}

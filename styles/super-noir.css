@@ -1,0 +1,55 @@
+/************************************************
+	Headers and text
+************************************************/
+
+.power-details {
+	overflow-y: scroll;
+}
+
+.sheet.journal-entry.super-noir-journal h1,
+.sheet.journal-entry.super-noir-journal h2,
+.sheet.journal-entry.super-noir-journal h3 {
+	font-family: 'Flight Legion';
+    border-bottom: unset;
+    color: #000000;
+}
+
+.sheet.journal-entry.super-noir-journal h4,
+.sheet.journal-entry.super-noir-journal h5,
+.sheet.journal-entry.super-noir-journal h6 {
+	font-family: 'Flight Legion';
+    color: #000000;
+}
+
+/* Links (internet) */
+
+.sheet.journal-entry.super-noir-journal a:link {
+    color: #000044;
+}
+
+.sheet.journal-entry.super-noir-journal a:visited {
+    color: #110000;
+}
+
+.sheet.journal-entry.super-noir-journal a:hover {
+    color: #000044;
+    text-shadow: 0px 0px 2px #000066;
+}
+
+.sheet.journal-entry.super-noir-journal p,
+.sheet.journal-entry.super-noir-journal li {
+	font-family: 'Times';
+	font-size: 13pt;
+}
+
+.sheet.journal-entry.super-noir-journal ul {
+	list-style-type: square;
+}
+
+sp-rule {
+	color: black;
+}
+
+.centered {
+	align: center;
+}
