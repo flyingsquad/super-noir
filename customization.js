@@ -16,7 +16,7 @@ Hooks.once('ready', () => {
 			"id": "PUMMEL",
 			"name": "Pummel",
 			"button_name": "Pummel",
-			"dmgMod": "+4",
+			"skillMod": "+4",
 			"and_selector": [
 				{
 					"selector_type": "actor_has_effect",
@@ -29,6 +29,24 @@ Hooks.once('ready', () => {
 			],
 			"group": "BRSW.AttackOption",
 			"defaultChecked": "off"
+		},
+		{
+			"id": "IRONJAWABSORPTION",
+			"name": "Iron Jaw",
+			"button_name": "Iron Jaw",
+			"skillMod": "+2",
+			"and_selector": [
+				{
+					"selector_type": "actor_has_edge",
+					"selector_value": "Iron Jaw"
+				},
+				{
+					"selector_type": "item_name",
+					"selector_value": "Absorption"
+				}
+			],
+			"group": "Power Modifiers",
+			"defaultChecked": "on"
 		},
 		{
 			id: "HEAVYWEAPONSupers",

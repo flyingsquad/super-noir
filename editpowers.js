@@ -11,6 +11,10 @@ const powerList = {
 
 };
 
+function stripHTML(str) {
+	return str.replace(/<[^>]+>/g, '');
+}
+
 function addDice(base, additional, maxDice) {
 	function replacer(match, p1, p2, offset, string) {
 		p1 = parseInt(p1);
@@ -69,15 +73,15 @@ async function createMeleeAttack(power, attackName, uuidFlag, damage) {
 	let attackUuid = power.getFlag(moduleId, uuidFlag);
 	let attack;
 	if (attackUuid) {
-		// Attack was already added. Get its UUID and make
+		// Attack was already added. Get its ID and make
 		// sure that it still exists.
-		attack = await fromUuid(attackUuid);
-		if (!attack || attack.parent?._id != power.parent._id) {
+		attack = await getItem(power.parent, attackUuid);
+		if (!attack) {
 			// Check for an item with the name on the character.
 			// This could happen if the character is duplicated.
 			attack = power.parent.items.find(it => it.name == attackName && it.type == 'weapon');
 			if (attack) {
-				attackUuid = attack.uuid;
+				attackUuid = attack.getFlag(moduleId, 'ID');
 				await power.setFlag(moduleId, uuidFlag, attackUuid);
 			}
 		}
@@ -122,8 +126,8 @@ async function createMeleeAttack(power, attackName, uuidFlag, damage) {
 		}
 		attack = result[0];
 		await attack.setFlag(moduleId, 'baseDamage', damage);
-		await attack.setFlag(moduleId, 'parentUuid', power.uuid);
-		attackUuid = attack.uuid;
+		attackUuid = attack._id;
+		attack.setFlag(moduleId, 'ID', attackUuid);
 		await power.setFlag(moduleId, uuidFlag, attackUuid);
 	}
 	let bonusDamage = attack.getFlag(moduleId, 'bonusDamage');
@@ -255,9 +259,9 @@ async function specialWeapon(item, swuuidFlag, extraDamage) {
 		ui.notifications.error("No weapon selected for the Special Weapon.");
 		return;
 	}
-	let weapon = await fromUuid(swuuid);
+	let weapon = await getItem(item.parent, swuuid);
 	if (!weapon) {
-		ui.notifications.error("The selected weapon is in the Gear list.");
+		ui.notifications.error("The selected weapon is not in the Gear list.");
 		return;
 	}
 
@@ -275,7 +279,10 @@ async function specialWeapon(item, swuuidFlag, extraDamage) {
 
 	let baseDamage = weapon.getFlag(moduleId, 'baseDamage');
 	if (!baseDamage) {
-		baseDamage = weapon.system.damage;
+		baseDamage = weapon.getFlag(moduleId, 'originalDamage');
+		if (!baseDamage) {
+			baseDamage = weapon.system.damage;
+		}
 		weapon.setFlag(moduleId, 'baseDamage', baseDamage);
 	}
 	totalDamage = addDice(baseDamage, totalDamage, maxMeleeDamageDice);
@@ -332,7 +339,6 @@ const universalModifiers = {
 	'alternate-trait': {
 		fields: [
 			{
-				activePower: true,
 				type: 'checkbox',
 				label: 'Alternate Trait',
 				id: 'alternateTrait',
@@ -345,7 +351,6 @@ const universalModifiers = {
 	'contingent': {
 		fields: [
 			{
-				activePower: true,
 				type: 'checkbox',
 				label: 'Contingent',
 				id: 'contingent',
@@ -371,7 +376,6 @@ const universalModifiers = {
 	'linked': {
 		fields: [
 			{
-				activePower: true,
 				type: 'checkbox',
 				label: 'Linked',
 				id: 'linked',
@@ -646,7 +650,7 @@ function indexValues(index, ...values) {
 	return values[index];
 }
 
-function getUpdates(item, update, itemUpdates) {
+function getUpdates(item, update, itemUpdates, targetItem = null) {
 	// So the actor can be referenced in the expression.
 	const actor = item.parent;
 
@@ -747,8 +751,14 @@ async function savePowerDetails(event, button, dialog) {
 						i.type == f.itemType && i.name == editOptions.itemDropped.name
 					);
 					if (it) {
+						// Assign an ID if one isn't present.
+						// This ID stays consistent if the actor is duplicated.
 						addIt = false;
-						uuid = it.uuid;
+						uuid = it.getFlag(moduleId, 'ID');
+						if (!uuid) {
+							uuid = it._id;
+							await it.setFlag(moduleId, 'ID', uuid);
+						}
 						dontDelete = true;
 					}
 				}
@@ -759,12 +769,13 @@ async function savePowerDetails(event, button, dialog) {
 
 					if (newItems && f.flag) {
 						// Record the item added for this power.
-						uuid = newItems[0].uuid;
+						uuid = newItems[0]._id;
+						newItems[0].setFlag(moduleId, 'ID', uuid);
 					}
 				}
 				if (oldUuid) {
 					// Delete the old item.
-					const oldItem = await fromUuid(oldUuid);
+					const oldItem = await getItem(actor, oldUuid);
 					if (oldItem && !item.getFlag(moduleId, 'dontDelete'))
 						await actor.deleteEmbeddedDocuments("Item", [oldItem._id]);
 				}
@@ -772,7 +783,7 @@ async function savePowerDetails(event, button, dialog) {
 				await item.setFlag(moduleId, f.flag, uuid);
 				await item.setFlag(moduleId, 'dontDelete', dontDelete);					
 			}
-			let childItem = await fromUuid(uuid);
+			let childItem = await getItem(actor, uuid);
 			if (childItem) {
 				if (f.descriptor)
 					data = `<b>${f.descriptor}:</b> `;
@@ -862,13 +873,26 @@ async function savePowerDetails(event, button, dialog) {
 			elt = html.querySelector(`select[id="${f.id}"]`);
 			if (!elt)
 				continue;
-			if (elt.value && elt.value != '--')
+			if (elt.value && elt.value != '--') {
 				data = `<b>${f.label}:</b> ${elt.options[elt.selectedIndex].text}`;
-			await item.setFlag(moduleId, f.flag, elt.value);
-			callFunc = f.callFunc;
-			if (f.nameflag) {
-				await item.setFlag(moduleId, f.nameflag, elt.options[elt.selectedIndex].text);
-			}
+				let selItem = await fromUuid(elt.value);
+				if (selItem) {
+					// Assign an ID to item if it doesn't already have one.
+					let ID = selItem.getFlag(moduleId, 'ID');
+					if (!ID) {
+						ID = selItem._id;
+						await selItem.setFlag(moduleId, 'ID', ID);
+					}
+					await item.setFlag(moduleId, f.flag, ID);
+					callFunc = f.callFunc;
+					if (f.nameflag) {
+						await item.setFlag(moduleId, f.nameflag, elt.options[elt.selectedIndex].text);
+					}
+				} else {
+					ui.notifications.error(`Item ${elt.options[elt.selectedIndex].text} does not exist.`);
+				}
+			} else
+				await item.setFlag(moduleId, f.flag, null);
 			break;
 		}
 		if (data) {
@@ -884,13 +908,13 @@ async function savePowerDetails(event, button, dialog) {
 		if (f.grantupdate && f.grantupdate.uuid && f.grantupdate.update) {
 			let uuid = item.getFlag(moduleId, f.grantupdate.uuid);
 			if (uuid) {
+				let targetItem = await getItem(actor, uuid);
 				if (f.grantupdate.saveflag) {
 					// If the grant indicates a value on the target item should
 					// be saved (so that it can be referenced in the update expression)
 					// check to see if it's already saved and do so if not.
 					let save = item.getFlag(moduleId, f.grantupdate.saveflag);
 					if (save == undefined) {
-						let targetItem = await fromUuid(uuid);
 						if (targetItem) {
 							const value = targetItem.system[f.grantupdate.savevalue];
 							await item.setFlag(moduleId, f.grantupdate.saveflag, value);
@@ -899,7 +923,7 @@ async function savePowerDetails(event, button, dialog) {
 				}
 				if (!grantUpdates[uuid])
 					grantUpdates[uuid] = {};
-				getUpdates(item, f.grantupdate.update, grantUpdates[uuid]);
+				getUpdates(item, f.grantupdate.update, grantUpdates[uuid], targetItem);
 			}
 		}
 
@@ -985,17 +1009,28 @@ async function savePowerDetails(event, button, dialog) {
 	if (Object.keys(actorUpdates).length > 0)
 		await actor.update(actorUpdates);
 
+	await item.setFlag(moduleId, "Modifiers", details);
+	insertDescription(item, details);
+	await setEffects(item);
+
+	if (pd.grantupdate) {
+		const gup = pd.grantupdate;
+		let uuid = item.getFlag(moduleId, gup.uuid);
+		if (uuid) {
+			if (!grantUpdates[uuid])
+				grantUpdates[uuid] = {};
+			let targetItem = await getItem(actor, uuid);
+			getUpdates(item, gup.update, grantUpdates[uuid], targetItem);
+		}
+	}
+
 	for (let uuid in grantUpdates) {
-		let updateItem = await fromUuid(uuid);
+		let updateItem = await getItem(actor, uuid);
 		if (updateItem)
 			await updateItem.update(grantUpdates[uuid]);
 		else
 			ui.notifications.notify(`The update item for ${item.name} is missing.`);
 	}
-
-	await item.setFlag(moduleId, "Modifiers", details);
-	insertDescription(item, details);
-	await setEffects(item);
 
 	if (item.type == 'power') {
 		await retotalPowerPoints(item.parent, 0);
@@ -1007,7 +1042,7 @@ async function savePowerDetails(event, button, dialog) {
 	for (let deleteit of deleteItems) {
 		const uuid = item.getFlag(moduleId, deleteit.flag);
 		if (uuid) {
-			let granted = await fromUuid(uuid);
+			let granted = await getItem(actor, uuid);
 			if (granted) {
 				await actor.deleteEmbeddedDocuments("Item", [granted._id]);
 			}
@@ -1022,7 +1057,7 @@ function isGear(item) {
 	return ['weapon', 'armor', 'gear'].includes(item.type);
 }
 
-function formatRow(left, right) {
+function formatRow(left, right, ralign = "right") {
 	if (!right)
 		return `<div style="display: table-row;">${left}</div>`;
 
@@ -1030,7 +1065,7 @@ function formatRow(left, right) {
 		<div style="display: table-cell; text-align: left;">
 			${left}
 		</div>
-		<div style="display: table-cell; text-align: right;">
+		<div style="display: table-cell; text-align: ${ralign};">
 			${right}
 		</div>
 	</div>`;
@@ -1078,10 +1113,12 @@ async function createContent(item, powerDetails, editOptions) {
 			editOptions.dropType = f.dropType;
 			editOptions.dontDelete = item.getFlag(moduleId, 'dontDelete');
 			let uuid = item.getFlag(moduleId, f.flag);
-			const it = await fromUuid(uuid);
 			let value = '';
-			if (it)
-				value = it.name;
+			if (uuid) {
+				const it = await getItem(item.actor, uuid);
+				if (it)
+					value = it.name;
+			}
 			content += formatRow(
 				`<label for="${f.id}">${f.label}</label>`,
 				`<input class="dnd" type="text" id="${f.id}" name="f.id" size="20" readonly=true value="${value}">`
@@ -1145,7 +1182,7 @@ async function createContent(item, powerDetails, editOptions) {
 				let select = `<select class="change" id="${f.id}" name="${f.id}">
 					<option value="">--</option>`
 				for (let i = 0; i < items.length; i++) {
-					const selected = items[i].uuid == itemUuid ? " selected" : "";
+					const selected = itemUuid && items[i].getFlag(moduleId, 'ID') == itemUuid ? " selected" : "";
 					select += `<option value="${items[i].uuid}"${selected}>${items[i].name}</option>`;
 				}
 				select += `</select>`;
@@ -1557,9 +1594,12 @@ async function addItem(item, flagUuid, uuid) {
 		// Add the item specified in the uuid, record it in the
 		// addUuid flag.
 		let addUuid = item.getFlag(moduleId, flagUuid);
-		if (addUuid)
-			// Already added somehow.
-			return;
+		if (addUuid) {
+			let it = await fromUuid(addUuid);
+			if (it)
+				// Already added somehow.
+				return;
+		}
 		let it = await fromUuid(uuid);
 		if (!it) {
 			ui.notifications.error(`Item to add doesn't exist (${uuid})`);
@@ -1569,10 +1609,14 @@ async function addItem(item, flagUuid, uuid) {
 		delete itemData._id;
 		let items = await item.actor.createEmbeddedDocuments("Item", [itemData]);
 		if (items) {
-			item.setFlag(moduleId, flagUuid, items[0].uuid);
-			items[0].setFlag(moduleId, 'parentUuid', item.uuid);
+			item.setFlag(moduleId, flagUuid, items[0]._id);
+			await items[0].setFlag(moduleId, 'ID', items[0]._id);
 		} else
 			ui.notifications.error(`Unable to add ${it.name} for ${item.name}.`);
+}
+
+async function getItem(actor, ID) {
+	return actor.items.find(it => ID == it.getFlag(moduleId, 'ID'));
 }
 
 async function createAction(item, action) {
@@ -1672,7 +1716,7 @@ async function updateItem(item, action) {
 		if (trackUuid) {
 			const uuid = item.getFlag(moduleId, trackUuid);
 			if (uuid) {
-				let grantItem = await fromUuid(uuid);
+				let grantItem = await getItem(item.parent, uuid);
 				if (grantItem && grantItem.name != item.name) {
 					await grantItem.update({"name": item.name});
 				}
@@ -1699,7 +1743,7 @@ async function deleteItem(item, action, id) {
 			let deleteUuid = item.getFlag(moduleId, d.deleteUuid);
 			let dontDelete = item.getFlag(moduleId, 'dontDelete');
 			if (deleteUuid && !dontDelete) {
-				let granted = await fromUuid(deleteUuid);
+				let granted = await getItem(item.actor, deleteUuid);
 				if (granted)
 					await item.actor.deleteEmbeddedDocuments("Item", [granted._id]);
 			}
@@ -2002,6 +2046,11 @@ class DefinitionDialog extends foundry.applications.api.DialogV2 {
 							definition = foundry.utils.duplicate(def);
 						} else
 							definition = JSON.parse(text);
+						// Unless the definition is removed first, it's not updated
+						// properly. Properties of the previous version of the
+						// definition that were deleted in the edit "come back".
+						// That's because setFlag isn't really a set: it's an update.
+						await this.item.setFlag(moduleId, 'definition', null);
 						await this.item.setFlag(moduleId, 'definition', definition);
 					} catch (err) {
 						e.preventDefault();
@@ -2127,9 +2176,506 @@ Hooks.once('init', async function () {
 		knockback: knockback,
 		copyPowers: copyPowers,
 		remakeCharacter: remakeCharacter,
-		stockVendor: stockVendor
+		stockVendor: stockVendor,
+		shrink: shrink,
+		growth: growth,
+		absorb: absorb,
+		negation: negation
 	}	
 });
+
+async function shrink(item) {
+	let actor = item.parent;
+	let content = `<p>Select the size for ${actor.name} to shrink to.</p>`;
+	const level = item.getFlag(moduleId, 'smaller');
+	if (level === undefined)
+		return ui.notifications.warn(`This macro must be run from the Shrink power or chat card after Shrink details have been set.`);
+	const microscopic = item.getFlag(moduleId, 'microscopic');
+	const density = item.getFlag(moduleId, 'density');
+	let curSize = item.getFlag(moduleId, 'curSize');
+	if (curSize === undefined)
+		curSize = 0;
+	
+	content += `<select name="size" id="size">
+		<option value="0">Size 0</option>
+		<option value="-1">Size -1</option>
+		<option value="-2">Size -2</option>`;
+	if (level >= 8)
+		content += `<option value="-3">Size -3</option>`;
+	if (level >= 16)
+		content += `<option value="-4">Size -4</option>`;
+	if (level >= 16 && microscopic)
+		content += `<option value="Microscopic">Microscopic</option>`;
+	content += `</select>`;
+
+	let newSize = await foundry.applications.api.DialogV2.wait({
+		window: { 
+			title: "Shrink",
+			width: 300
+		},
+		content: content,
+		buttons: [
+			{
+				label: "Shrink",
+				action: "ok",
+				default: true,
+				callback: async (event, button, dialog) => {
+					return button.form.elements.size.value;
+				}
+			},
+			{
+				action: "cancel",
+				label: "Cancel",
+				callback: (event, button, dialog) => { return false; }
+			}
+		]
+	});
+	if (size === false)
+		return;
+
+	// Remove current shrink effect.
+
+	const effect = actor.effects.find(e => e.name.startsWith('Shrink'));
+	if (effect)
+		actor.deleteEmbeddedDocuments("ActiveEffect", [effect._id]);
+	
+	let shrinkEffect = {
+		name: `Shrink ${newSize}`,
+		icon: "modules/succ/assets/icons/m-shrink.svg",
+		origin: null,
+		disabled: false,
+		description: "<p>Shrink</p>",
+		system: {
+			favorite: true
+		},
+		changes: []
+	};
+
+	if (newSize == 'Microscopic') {
+		// Nothing can affect the character from the normal world,
+		// but the character's stats are otherwise normal for that size.
+		shrinkEffect.changes.push({
+			key: "ATL.width",
+			mode: 5,
+			priority: 50,
+			value: ".5"
+		});
+		shrinkEffect.changes.push({
+			key: "ATL.height",
+			mode: 5,
+			priority: 50,
+			value: ".5"
+		});
+
+		let result = await actor.createEmbeddedDocuments("ActiveEffect", [shrinkEffect]);
+
+		let chatData = {
+			speaker: {actor: actor},
+			content: `${actor.name} is now Microscopic.`
+		};
+		await ChatMessage.create(chatData);
+		return;
+	}
+
+	newSize = parseInt(newSize);
+	if (newSize == 0) {
+		await ChatMessage.create({
+			speaker: {actor: actor}, 
+			content: `${actor.name} has returned to normal size.`
+		});
+		return;
+	}
+
+	shrinkEffect.changes.push({
+		key: "system.stats.size",
+		mode: 2,
+		priority: 50,
+		value: newSize
+	});
+	shrinkEffect.changes.push({
+		key: "ATL.width",
+		mode: 5,
+		priority: 50,
+		value: newSize < -1 ? ".5" : ".75"
+	});
+	shrinkEffect.changes.push({
+		key: "ATL.height",
+		mode: 5,
+		priority: 50,
+		value: newSize < -1 ? ".5" : ".75"
+	});
+
+	// If density mod selected Toughness and Strength are not affected.
+	if (density)
+		shrinkEffect.changes.push({
+			key: "system.stats.toughness.value",
+			mode: 2,
+			priority: 50,
+			value: -newSize
+		});
+	else
+		shrinkEffect.changes.push({
+			key: "system.attributes.strength.die.modifier",
+			mode: 2,
+			priority: 50,
+			value: newSize
+		});
+		
+	let result = await actor.createEmbeddedDocuments("ActiveEffect", [shrinkEffect]);
+	await ChatMessage.create({
+		speaker: {actor: actor}, 
+		content: `${actor.name} is now size ${newSize}.`
+	});
+}
+
+async function growth(item) {
+	let actor = item.parent;
+	let content = `<p>Select the size for ${actor.name} to grow to.</p>`;
+	const level = item.getFlag(moduleId, 'level');
+	const permanent = item.getFlag(moduleId, 'permanent');
+
+	if (level === undefined)
+		return ui.notifications.warn(`This macro must be run from the Growth power or chat card after Growth details have been set.`);
+	
+	content += `<select name="size" id="size">`;
+	if (permanent)
+		content += `<option value="${level}">Size ${level}</option>`;
+	else {
+		for (let i = 0; i <= level; i++)
+			content += `<option value="${i}">Size ${i}</option>`;
+	}
+	content += `</select>`;
+
+	let newSize = await foundry.applications.api.DialogV2.wait({
+		window: { 
+			title: "Growth",
+			width: 300
+		},
+		content: content,
+		buttons: [
+			{
+				label: "Grow",
+				action: "ok",
+				default: true,
+				callback: async (event, button, dialog) => {
+					return button.form.elements.size.value;
+				}
+			},
+			{
+				action: "cancel",
+				label: "Cancel",
+				callback: (event, button, dialog) => { return false; }
+			}
+		]
+	});
+	if (newSize === false)
+		return;
+
+	// Remove current growth effect.
+
+	const effect = actor.effects.find(e => e.name.startsWith('Growth'));
+	if (effect)
+		actor.deleteEmbeddedDocuments("ActiveEffect", [effect._id]);
+	
+	let growthEffect = {
+		name: `Growth ${newSize}`,
+		icon: "modules/succ/assets/icons/m-growth.svg",
+		origin: null,
+		disabled: false,
+		description: "<p>Growth</p>",
+		system: {
+			favorite: true
+		},
+		changes: []
+	};
+
+	newSize = parseInt(newSize);
+	if (newSize == 0) {
+		await ChatMessage.create({
+			speaker: {actor: actor},
+			content: `${actor.name} has returned to normal size.`
+		});
+		return;
+	}
+
+	growthEffect.changes.push({
+		key: "system.stats.size",
+		mode: 2,
+		priority: 50,
+		value: newSize
+	});
+
+	const tokSize = Math.min(2, 1 + newSize / 4.0);
+	growthEffect.changes.push({
+		key: "ATL.width",
+		mode: 5,
+		priority: 50,
+		value: tokSize
+	});
+	growthEffect.changes.push({
+		key: "ATL.height",
+		mode: 5,
+		priority: 50,
+		value: tokSize
+	});
+
+	growthEffect.changes.push({
+		key: "system.attributes.strength.die.sides",
+		mode: 2,
+		priority: 50,
+		value: newSize*2
+	});
+
+	if (newSize >= 4) {
+		growthEffect.changes.push({
+			key: "system.wounds.max",
+			mode: 2,
+			priority: 50,
+			value: Math.floor(newSize / 4)
+		});
+		growthEffect.changes.push({
+			key: "system.pace.ground",
+			mode: 2,
+			priority: 50,
+			value: Math.floor(newSize / 4)
+		});
+	}
+
+	let result = await actor.createEmbeddedDocuments("ActiveEffect", [growthEffect]);
+	await ChatMessage.create({
+		speaker: {actor: actor},
+		content: `${actor.name} is now size ${newSize}.`
+	});
+}
+
+async function absorb(item) {
+	const effectName = 'Absorption Size Increase';
+	const transferName = 'Absorption Transference';
+	
+	let actor = item.parent;
+
+	const growth = item.getFlag(moduleId, 'growth');
+	const transference = item.getFlag(moduleId, 'transference');
+
+	let content = `<div style="display: table; width: 300px; font-size: 10pt;">
+		<div style="display: table-row-group;">`;
+
+	content += formatRow(`<label for="wounds"> Wounds Absorbed</label>`,
+		`<input type="number" id="wounds" name="wounds" value="1">`);
+	content += formatRow(`<label for="unshake">Unshake</label>`,
+		`<input type="checkbox" id="unshake" name="unshake">`, 'left');
+
+
+	const attributes = {
+		Agility: 'agility',
+		Smarts: 'smarts',
+		Spirit: 'spirit',
+		Strength: 'strength', 
+		Vigor: 'vigor'
+	};
+
+	if (transference) {
+		// Limit increases to 4 die types by not including an
+		// attribute if the limit has been reached.
+		let attrIncEffects = actor.effects.filter(e => e.name.startsWith(transferName));
+		let increases = [];
+		for (let e of attrIncEffects) {
+			let key = e.changes[0].key.split('.');
+			const aname = key[2];
+			if (increases[aname])
+				increases[aname]++;
+			else
+				increases[aname] = 1;
+		}
+		let select = `<select id="attribute" name="attribute">`;
+		for (const a in attributes) {
+			let inc = increases[attributes[a]];
+			if (inc == undefined) inc = 0;
+			if (inc < 4)
+				select += `<option value="${attributes[a]}">${a}</option>`;
+		}
+		select += `</select>`;
+		content += formatRow("Attribute", select);
+	}
+
+	content += `</div></div>`
+
+	let wounds;
+	let attribute;
+	let Attribute;
+	let unshake;
+
+	let result = await foundry.applications.api.DialogV2.wait({
+		window: { 
+			title: "Absorb",
+			width: 400
+		},
+		content: content,
+		buttons: [
+			{
+				label: "Absorb",
+				action: "ok",
+				callback: async (event, button, dialog) => {
+					wounds =  button.form.elements.wounds.valueAsNumber;
+					if (transference) {
+						const elt = button.form.elements.attribute;
+						attribute = elt.value;
+						Attribute = elt[elt.selectedIndex].text;
+					}
+					unshake = button.form.elements.unshake.checked;
+					return 'absorb';
+				}
+			},
+			{
+				label: "Remove Effects",
+				action: "remove",
+				callck: async (event, button, dialog) => {
+					wounds =  button.form.elements.wounds.valueAsNumber;
+					if (transference)
+						attribute = button.form.elements.attribute.value;
+					unshake = button.form.elements.unshake.checked;
+					return 'remove';
+				}
+			},
+			{
+				action: "cancel",
+				label: "Cancel",
+				callback: (event, button, dialog) => { return 'cancel'; }
+			}
+		]
+	});
+	if (result == 'cancel')
+		return;
+	wounds = parseInt(wounds);
+
+	// Remove the current effect.
+
+	let sizeIncrease = 0;
+	const effect = actor.effects.find(e => e.name == effectName);
+	if (effect) {
+		sizeIncrease = parseInt(effect.changes[0].value);
+		actor.deleteEmbeddedDocuments("ActiveEffect", [effect._id]);
+	}
+
+	if (result == 'remove') {
+		// Also remove any attribute increases.
+		const increases = actor.effects.filter(e => e.name.startsWith(transferName));
+		if (increases.length > 0) {
+			const remove = increases.map(e => e._id)
+			actor.deleteEmbeddedDocuments("ActiveEffect", remove);
+		}
+		return;
+	}
+
+	function appendMsg(msg, text) {
+		if (msg)
+			msg += ', ';
+		return msg + text;
+	}
+
+	// Remove wounds and shaken
+	const currentWounds = actor.system.wounds.value;
+	const newWounds = Math.max(currentWounds - wounds, 0);
+	let updates = {};
+	let msg = ``;
+	if (newWounds <= actor.system.wounds.max) {
+		if (actor.system.status.isIncapacitated) {
+			const incap = game.swade.util.getStatusEffectDataById('incapacitated', {active: false});
+			actor.toggleActiveEffect(incap)
+		}
+		updates["system.wounds.value"] = newWounds;
+		msg = appendMsg(msg, ` absorbed ${wounds} wound(s)`);
+	}
+
+	if (unshake) {
+		if (actor.system.status.isShaken) {
+			const shaken = game.swade.util.getStatusEffectDataById('shaken', {active: false});
+			actor.toggleActiveEffect(shaken);
+		}
+		msg = appendMsg(msg, `is not shaken`);
+	}
+
+	await actor.update(updates);
+	
+	if (growth) {
+		let absorbEffect = {
+			name: effectName,
+			icon: "modules/succ/assets/icons/m-boost.svg",
+			origin: null,
+			disabled: false,
+			description: "<p>Size increase from the absorption power.</p>",
+			system: {
+				favorite: true
+			},
+			changes: []
+		};
+
+		sizeIncrease += wounds;
+
+		absorbEffect.changes.push({
+			key: "system.stats.size",
+			mode: 2,
+			priority: 50,
+			value: sizeIncrease
+		});
+		// Limit token size increase to double.
+		let tokenSize = Math.min(1, sizeIncrease / 4);
+		absorbEffect.changes.push({
+			key: "ATL.width",
+			mode: 2,
+			priority: 50,
+			value: tokenSize
+		});
+		absorbEffect.changes.push({
+			key: "ATL.height",
+			mode: 2,
+			priority: 50,
+			value: tokenSize
+		});
+		absorbEffect.changes.push({
+			key: "system.attributes.strength.die.sides",
+			mode: 2,
+			priority: 50,
+			value: sizeIncrease*2
+		});
+		let result = await actor.createEmbeddedDocuments("ActiveEffect", [absorbEffect]);
+		msg = appendMsg(msg, `size increased by ${wounds}`);
+	}
+	
+	if (transference && attribute) {
+		let increaseAttribute = {
+			name: `${transferName} (${Attribute})`,
+			icon: "modules/succ/assets/icons/m-boost.svg",
+			origin: null,
+			disabled: false,
+			description: `<p>Attribute increased by Absorption.</p>`,
+			changes: [
+				{
+					key: `system.attributes.${attribute}.die.sides`,
+					mode: 2,
+					priority: 50,
+					value: 2
+				}				
+			],
+			duration: {
+			  seconds: 30,
+			  rounds: 5,
+  			  startTime: game.time.worldTime,
+			  startRound: game?.combat?.current?.round
+			},
+			system: {
+				expiration: 2
+			}
+		};
+		let result = await actor.createEmbeddedDocuments("ActiveEffect", [increaseAttribute]);
+		msg = appendMsg(msg, `increased ${Attribute}`);
+	}
+
+	await ChatMessage.create({
+		speaker: {actor: actor},
+		content: `${actor.name} ${msg}.`
+	});
+}
 
 function toggleEffects(item) {
 	if (!item)
@@ -2138,6 +2684,95 @@ function toggleEffects(item) {
 	for (let e of item.effects) {
 		e.update({"disabled": !e.disabled});
 	}	
+}
+
+async function negation(token) {
+	const actor = token.actor;
+	const targets = Array.from(game.user.targets);
+	if (targets.length != 1)
+		return ui.notifications.notify("Target the token to negate powers on.");
+
+	const target = targets[0].actor;
+	let npowers = 0;
+	let powers = "";
+	let powerNames = [];
+	for (const p of target.items) {
+		if (p.type != 'power')
+			continue;
+		npowers++;
+		powerNames[npowers] = p.name;
+		const id = `p${npowers}`;
+		powers += `<div style="display: table-row;">
+			<div style="display: table-cell">
+				<input type="checkbox" id="${id}" name="${id}" data-uuid="${p.uuid}">
+			</div>
+			<div style="display: table-cell">
+				<label for="${id}">${p.name} (${p.system.pp})</label>
+			</div>
+		</div>`
+	}
+
+	const content = `<p>Select powers to negate on ${target.name}.</p>
+		<div style="display: table; width: 300px;">
+			<div style="display: table-row-group">
+				<div style="display: table-row;">
+					${powers}
+				</div>
+			</div>
+		</div>`;
+
+	const dlg = new foundry.applications.api.DialogV2({
+		window: { title: "Negation" },
+		content: content,
+		buttons: [
+			{
+				label: "OK",
+				action: "ok",
+				default: true,
+				callback: async (event, button, dialog) => {
+					let chosenPowers = [];
+					for (let i = 1; i <= npowers; i++) {
+						const id = `p${i}`;
+						if (!button.form.elements[id].checked)
+							continue;
+						
+						chosenPowers.push(powerNames[i]);
+					}
+					negate(chosenPowers.join(', '));
+				}
+			},
+			{
+				action: "cancel",
+				label: "Cancel",
+				callback: (event, button, dialog) => { return false; }
+			}
+		]
+	}).render(true);
+	
+	async function negate(powers) {
+		let negation = {
+			name: `Negation: ${powers}`,
+			icon: "modules/super-noir/assets/images/negation.webp",
+			origin: null,
+			disabled: false,
+			description: `<p>Roll Spirit each round to shake off negation.</p>`,
+			duration: {
+			  seconds: 6000,
+			  rounds: 1000,
+			  startTime: game.time.worldTime,
+			  startRound: game?.combat?.current?.round
+			},
+			system: {
+				favorite: true,
+				expiration: 2
+			}
+		};
+		let result = await target.createEmbeddedDocuments("ActiveEffect", [negation]);
+		await ChatMessage.create({
+			speaker: {actor: token.actor},
+			content: `Power(s) negated on ${targets[0].name}: ${powers}. Roll Spirit each round to recover. Each success and raise restores one power.`
+		});
+	}
 }
 
 function copyPowers() {
@@ -2259,7 +2894,7 @@ async function knockback() {
 					u += `Applying collision damage: 2d6 + ${w}<br>`;
 					try {
 						await new CONFIG.Dice.DamageRoll(`2d6 + ${w}`).toMessage({
-						  speaker: ChatMessage.getSpeaker({ actor: token.actor }),
+						  speaker: ChatMessage.getSpeaker({ token: token }),
 						  flavor: `Collision Damage from Knockback (${w} inches)`
 						});
 					} catch (E) {
