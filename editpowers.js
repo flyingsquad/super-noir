@@ -2208,32 +2208,3 @@ function toggleEffects(item) {
 		e.update({"disabled": !e.disabled});
 	}	
 }
-
-/*	Hook roll item and issue a chat message if the
- *	power has been marked as negated. If no effect
- *	linking to the power is found, remove the flag
- *	so the check isn't made anymore.
- */
-
-Hooks.on("BRSW-RollItem", async (card, id) => {
-	if (!card.item.getFlag(moduleId, 'negated'))
-		return;
-	let negateEffect = card.actor.effects.find((e) => {
-		const powers = e.getFlag(moduleId, "negatedPowers");
-		if (powers)
-			if (powers.includes(card.item._id))
-				return true;
-		return false;
-	});
-	if (negateEffect && !negateEffect.disabled) {
-		await ChatMessage.create({
-			speaker: {actor: card.actor},
-			content: `${card.item.name} is negated and cannot be used.`
-		});
-		return;
-	}
-	// Clear this flag since there's no effect saying the
-	// power is negated.
-	card.item.setFlag(moduleId, 'negated', null);
-});
-
