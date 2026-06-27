@@ -1,10 +1,9 @@
 {
   "id": "super-noir",
   "title": "Super-Noir",
-  "version": "1.0.0",
   "compatibility": {
     "minimum": "13",
-    "verified": "13"
+    "verified": "14"
   },
   "esmodules": [
 	"./customization.js",
@@ -168,6 +167,6 @@
   ],
   "url": "https://github.com/flyingsquad/super-noir",
   "manifest": "https://raw.githubusercontent.com/flyingsquad/super-noir/main/module.json",
-  "version": "1.0.0",
-  "download": "https://github.com/flyingsquad/super-noir/archive/refs/tags/v1.0.0.zip"  
+  "version": "1.0.1",
+  "download": "https://github.com/flyingsquad/super-noir/archive/refs/tags/v1.0.1.zip"  
 }

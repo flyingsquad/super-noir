@@ -1,11 +1,11 @@
-2026/06/19-16:32:39.011 7640 Recovering log #386
-2026/06/19-16:32:39.011 7640 Level-0 table #388: started
-2026/06/19-16:32:39.011 7640 Level-0 table #388: 3525 bytes OK
-2026/06/19-16:32:39.011 7640 Delete type=0 #386
-2026/06/19-16:32:39.011 7640 Delete type=3 #385
-2026/06/19-16:32:39.471 19c4 Compacting 1@0 + 1@1 files
-2026/06/19-16:32:39.488 19c4 Generated table #390@0: 1044 keys, 1212938 bytes
-2026/06/19-16:32:39.488 19c4 Compacted 1@0 + 1@1 files => 1212938 bytes
-2026/06/19-16:32:39.488 19c4 compacted to: files[ 0 1 0 0 0 0 0 ]
-2026/06/19-16:32:39.488 19c4 Delete type=2 #378
-2026/06/19-16:32:39.488 19c4 Delete type=2 #388
+2026/06/27-11:18:23.989 5edc Recovering log #430
+2026/06/27-11:18:23.989 5edc Level-0 table #432: started
+2026/06/27-11:18:23.992 5edc Level-0 table #432: 105757 bytes OK
+2026/06/27-11:18:23.995 5edc Delete type=0 #430
+2026/06/27-11:18:23.996 5edc Delete type=3 #429
+2026/06/27-11:18:24.624 a710 Compacting 1@0 + 1@1 files
+2026/06/27-11:18:24.644 a710 Generated table #434@0: 1509 keys, 1768467 bytes
+2026/06/27-11:18:24.644 a710 Compacted 1@0 + 1@1 files => 1768467 bytes
+2026/06/27-11:18:24.645 a710 compacted to: files[ 0 1 0 0 0 0 0 ]
+2026/06/27-11:18:24.645 a710 Delete type=2 #422
+2026/06/27-11:18:24.645 a710 Delete type=2 #432
