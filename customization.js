@@ -1,5 +1,5 @@
 
-Hooks.once('ready', () => {
+Hooks.once('brswReady', () => {
 	const BETTER_ROLLS_GLOBAL_ACTIONS = [
 		{
 			"id": "CONVICTION",

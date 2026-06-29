@@ -5,7 +5,7 @@
  * file
  */
  
-class SuperNoirJournal extends JournalSheet {
+class SuperNoirJournal extends foundry.appv1.sheets.JournalSheet {
 	static get defaultOptions() {
 		const options = super.defaultOptions;
 		options.classes.push('super-noir-journal');
@@ -15,7 +15,7 @@ class SuperNoirJournal extends JournalSheet {
 
 Hooks.on("init", (documentTypes) => {
 
-	Journal.registerSheet("journals", SuperNoirJournal, {
+	foundry.documents.collections.Journal.registerSheet("journals", SuperNoirJournal, {
 		label: "Super Noir",
 		types: ["base"],
 		makeDefault: false
