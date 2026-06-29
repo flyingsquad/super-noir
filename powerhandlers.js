@@ -156,10 +156,16 @@ export async function absorb(item) {
 	if (growth) {
 		let absorbEffect = {
 			name: effectName,
-			icon: "modules/succ/assets/icons/m-boost.svg",
+			img: "modules/succ/assets/icons/m-boost.svg",
 			origin: null,
 			disabled: false,
 			description: "<p>Size increase from the absorption power.</p>",
+			duration: {
+			  seconds: 6000,
+			  rounds: 1000,
+  			  startTime: game.time.worldTime,
+			  startRound: game?.combat?.current?.round
+			},
 			system: {
 				favorite: true
 			},
@@ -177,13 +183,13 @@ export async function absorb(item) {
 		// Limit token size increase to double.
 		let tokenSize = Math.min(1, sizeIncrease / 4);
 		absorbEffect.changes.push({
-			key: "ATL.width",
+			key: "token.texture.scaleX",
 			mode: 2,
 			priority: 50,
 			value: tokenSize
 		});
 		absorbEffect.changes.push({
-			key: "ATL.height",
+			key: "token.texture.scaleY",
 			mode: 2,
 			priority: 50,
 			value: tokenSize
@@ -201,7 +207,7 @@ export async function absorb(item) {
 	if (transference && attribute) {
 		let increaseAttribute = {
 			name: `${transferName} (${Attribute})`,
-			icon: "modules/succ/assets/icons/m-boost.svg",
+			img: "modules/succ/assets/icons/m-boost.svg",
 			origin: null,
 			disabled: false,
 			description: `<p>Attribute increased by Absorption.</p>`,
@@ -480,10 +486,16 @@ export async function growth(item) {
 	
 	let growthEffect = {
 		name: `Growth ${newSize}`,
-		icon: "modules/succ/assets/icons/m-growth.svg",
+		img: "modules/succ/assets/icons/m-growth.svg",
 		origin: null,
 		disabled: false,
 		description: "<p>Growth</p>",
+		duration: {
+		  seconds: 60000,
+		  rounds: 10000,
+		  startTime: game.time.worldTime,
+		  startRound: game?.combat?.current?.round
+		},
 		system: {
 			favorite: true
 		},
@@ -508,13 +520,13 @@ export async function growth(item) {
 
 	const tokSize = Math.min(2, 1 + newSize / 4.0);
 	growthEffect.changes.push({
-		key: "ATL.width",
+		key: "token.texture.scaleX",
 		mode: 5,
 		priority: 50,
 		value: tokSize
 	});
 	growthEffect.changes.push({
-		key: "ATL.height",
+		key: "token.texture.scaleY",
 		mode: 5,
 		priority: 50,
 		value: tokSize
@@ -608,10 +620,16 @@ export async function shrink(item) {
 	
 	let shrinkEffect = {
 		name: `Shrink ${newSize}`,
-		icon: "modules/succ/assets/icons/m-shrink.svg",
+		img: "modules/succ/assets/icons/m-shrink.svg",
 		origin: null,
 		disabled: false,
 		description: "<p>Shrink</p>",
+		duration: {
+		  seconds: 60000,
+		  rounds: 10000,
+		  startTime: game.time.worldTime,
+		  startRound: game?.combat?.current?.round
+		},
 		system: {
 			favorite: true
 		},
@@ -622,16 +640,16 @@ export async function shrink(item) {
 		// Nothing can affect the character from the normal world,
 		// but the character's stats are otherwise normal for that size.
 		shrinkEffect.changes.push({
-			key: "ATL.width",
+			key: "token.texture.scaleX",
 			mode: 5,
 			priority: 50,
-			value: ".5"
+			value: "0.5"
 		});
 		shrinkEffect.changes.push({
-			key: "ATL.height",
+			key: "token.texture.scaleX",
 			mode: 5,
 			priority: 50,
-			value: ".5"
+			value: "0.5"
 		});
 
 		let result = await actor.createEmbeddedDocuments("ActiveEffect", [shrinkEffect]);
@@ -660,16 +678,16 @@ export async function shrink(item) {
 		value: newSize
 	});
 	shrinkEffect.changes.push({
-		key: "ATL.width",
+		key: "token.texture.scaleX",
 		mode: 5,
 		priority: 50,
-		value: newSize < -1 ? ".5" : ".75"
+		value: newSize < -1 ? "0.5" : "0.75"
 	});
 	shrinkEffect.changes.push({
-		key: "ATL.height",
+		key: "token.texture.scaleY",
 		mode: 5,
 		priority: 50,
-		value: newSize < -1 ? ".5" : ".75"
+		value: newSize < -1 ? "0.5" : "0.75"
 	});
 
 	// If density mod selected Toughness and Strength are not affected.
@@ -819,7 +837,7 @@ export async function negation(token) {
 		}
 		let negation = {
 			name: `Negation: ${names.join(', ')}`,
-			icon: "modules/super-noir/assets/images/negation.webp",
+			img: "modules/super-noir/assets/images/negation.webp",
 			origin: null,
 			disabled: false,
 			description: `<p>Roll Spirit each round to shake off negation.</p>`,
