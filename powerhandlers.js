@@ -100,7 +100,7 @@ export async function absorb(item) {
 			}
 		]
 	});
-	if (result == 'cancel')
+	if (result == 'cancel' || !result)
 		return;
 	wounds = parseInt(wounds);
 

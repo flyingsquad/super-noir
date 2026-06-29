@@ -900,6 +900,7 @@ async function savePowerDetails(event, button, dialog) {
 					if (f.nameflag) {
 						await item.setFlag(moduleId, f.nameflag, elt.options[elt.selectedIndex].text);
 					}
+					update = f.update;
 				} else {
 					ui.notifications.error(`Item ${elt.options[elt.selectedIndex].text} does not exist.`);
 				}
@@ -1006,7 +1007,7 @@ async function savePowerDetails(event, button, dialog) {
 	}
 	if (item.type == 'power') {	
 		itemUpdates["system.pp"] = editOptions.powerCost;
-	} else if (isGear(item)) {
+	} else if (isGear(item) && item.getFlag(moduleId, 'Purchased')) {
 		itemUpdates["system.price"] = editOptions.powerCost;
 		itemUpdates["system.weight"] = totalWeight;
 		const difference = editOptions.powerCost - editOptions.itemPrice;
